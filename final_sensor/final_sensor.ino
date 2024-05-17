@@ -1,16 +1,12 @@
 
 #include "DFRobot_ESP_PH_WITH_ADC.h"
 #include "DFRobot_ESP_EC.h"
-// #include "OneWire.h"
-//#include "DallasTemperature.h"
 #include "Adafruit_ADS1X15.h"
-//#include "EEPROM.h"
 #define outec 27
 #include <WiFiClientSecure.h>
 
 const char* ssid = "ZTE_2.4G_rMTtse";
 const char* password = "12345678";
-
 const char*  server = "puh.web.id";  // Server URL
 
 WiFiClientSecure client;
@@ -18,15 +14,14 @@ const int trigPin = 9;
 const int echoPin = 10;
 long duration;
 int distance, tinggi, ketinggian;
-//#define ONE_WIRE_BUS 15
-//OneWire oneWire(ONE_WIRE_BUS);
-//DallasTemperature sensors(&oneWire);
+
 DFRobot_ESP_EC ec;
 DFRobot_ESP_PH_WITH_ADC ph;
 Adafruit_ADS1115 ads;
-String ecString, phString;
+String ecString, phString, ketstring;
 String sensrec = "/sensor";
 String sensrph = "/sensor/ph";
+String sensrwl = "/sensor/wl";
 float voltageec, voltageph, phValue, ecValue, temperature = 25;
 
 void postTo(String sensr, String value)
@@ -62,9 +57,6 @@ void setup()
   pinMode(trigPin, OUTPUT); // Sets the trigPin as an Output
   pinMode(echoPin, INPUT); // Sets the echoPin as an Input
 	Serial.begin(115200);
-	//EEPROM.begin(32);//needed EEPROM.begin to store calibration k in eeprom
-	//ph.begin();
-	//sensors.begin();
 	ads.setGain(GAIN_ONE);
 	ads.begin();
   
@@ -122,23 +114,34 @@ void loop()
 		Serial.print("adc voltageec:");
 		Serial.println(voltageec, 4);
 
+    delay(1000);
 
     ecValue = ec.readEC(voltageec, temperature); // convert voltage to EC with temperature compensation
 		Serial.print("EC:");
 		Serial.print(ecValue, 4);
 		Serial.println("ms/cm");
 
+    delay(1000);
+    
     ecString = String(ecValue);
     postTo(sensrec, ecString);
+    
+    delay(1000);
 
 		phValue = ph.readPH(voltageph, temperature); // convert voltage to pH with temperature compensation
 		Serial.print("pH:");
 		Serial.println(phValue, 4);
-
+    
     phString = String(phValue);
     postTo(sensrph, phString);
+    
+    delay(1000);
 
     ketinggian = waterlevel();
+    ketstring = String(ketinggian);
+    postTo(sensrwl, ketstring);
+    
+    delay(1000);
 
 
     if (ecValue < 1.2){
@@ -166,5 +169,4 @@ void loop()
     }
 
 	}
-	// ph.calibration(voltage, temperature); // calibration process by Serail CMD
 }
