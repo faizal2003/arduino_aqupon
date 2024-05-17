@@ -1,33 +1,3 @@
-/*
- * file read_ph.ino
- * @ https://github.com/GreenPonik/DFRobot_ESP_PH_WITH_ADC_BY_GREENPONIK
- *
- * IMPORTANT : to make it work, you will need the help of an additionnal ADC converter because the one on the ESP32 isn't accurate enough. Here we used an ADS1115 from Adafruit
- * You can find it here : https://www.adafruit.com/product/1085
- * And here is the library you'll need to add to your sketch : https://github.com/adafruit/Adafruit_ADS1X15
- * 
- * This is the sample code for Gravity: Analog pH Sensor / Meter Kit V2, SKU:SEN0161-V2
- * In order to guarantee precision, a temperature sensor such as DS18B20 is needed, to execute automatic temperature compensation.
- * You can send commands in the serial monitor to execute the calibration.
- * Serial Commands:
- *   enterph -> enter the calibration mode
- *   calph   -> calibrate with the standard buffer solution, two buffer solutions(4.0 and 7.0) will be automaticlly recognized
- *   exitph  -> save the calibrated parameters and exit from calibration mode
- * 
- * Based on the @ https://github.com/DFRobot/DFRobot_PH
- * Copyright   [DFRobot](http://www.dfrobot.com), 2018
- * Copyright   GNU Lesser General Public License
- *
- * ##################################################
- * ##################################################
- * ######## Forked on github by GreenPonik ##########
- * ############# ONLY ESP COMPATIBLE ################
- * ##################################################
- * ##################################################
- * 
- * version  V1.2.2
- * date  2019-06
- */
 
 #include "DFRobot_ESP_PH_WITH_ADC.h"
 #include "DFRobot_ESP_EC.h"
@@ -36,22 +6,55 @@
 #include "Adafruit_ADS1X15.h"
 //#include "EEPROM.h"
 #define outec 27
+#include <WiFiClientSecure.h>
+
+const char* ssid = "ZTE_2.4G_rMTtse";
+const char* password = "12345678";
+
+const char*  server = "puh.web.id";  // Server URL
+
+WiFiClientSecure client;
 const int trigPin = 9;
 const int echoPin = 10;
 long duration;
-int distance, tinggi;
+int distance, tinggi, ketinggian;
 //#define ONE_WIRE_BUS 15
 //OneWire oneWire(ONE_WIRE_BUS);
 //DallasTemperature sensors(&oneWire);
 DFRobot_ESP_EC ec;
 DFRobot_ESP_PH_WITH_ADC ph;
 Adafruit_ADS1115 ads;
-
+String ecString, phString;
+String sensrec = "/sensor";
+String sensrph = "/sensor/ph";
 float voltageec, voltageph, phValue, ecValue, temperature = 25;
 
-float readTemperature()
+void postTo(String sensr, String value)
 {
-	
+	  client.print("POST " + sensr);
+	  client.println(" HTTP/1.1");
+    client.println("Content-Type: application/x-www-form-urlencoded");
+    client.println("Host: puh.web.id");
+    client.println("Content-Length: 6");
+    client.println();
+    client.println("val="+ value);
+    // client.println();
+
+    while (client.connected()) {
+      String line = client.readStringUntil('\n');
+      if (line == "\r") {
+        Serial.println("headers received");
+        break;
+      }
+    }
+    // if there are incoming bytes available
+    // from the server, read them and print them:
+    while (client.available()) {
+      char c = client.read();
+      Serial.write(c);
+    }
+
+    client.stop();
 }
 
 void setup()
@@ -64,9 +67,27 @@ void setup()
 	//sensors.begin();
 	ads.setGain(GAIN_ONE);
 	ads.begin();
+  
+  Serial.print("Attempting to connect to SSID: ");
+  Serial.println(ssid);
+  WiFi.begin(ssid, password);
+
+  // attempt to connect to Wifi network:
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    // wait 1 second for re-trying
+    delay(1000);
+  }
+
+  Serial.print("Connected to ");
+  Serial.println(ssid);
+
+  client.setInsecure();
+  if (!client.connect(server, 443))
+    Serial.println("Connection failed!");
 }
 
-void waterlevel(){
+int waterlevel(){
    // Clears the trigPin
   digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
@@ -81,23 +102,19 @@ void waterlevel(){
   // Prints the distance on the Serial Monitor
   Serial.print("Distance: ");
   Serial.println(distance);
-  tinggi = 60 - distance;
+  tinggi = 30 - distance;
   Serial.print("tinggi: ");
   Serial.println(tinggi);
+  return tinggi;
 }
 
 void loop()
 {
 	static unsigned long timepoint = millis();
-	if (millis() - timepoint > 1000U) //time interval: 1s
+	if (millis() - timepoint > 7000U) //time interval: 7s
 	{
 		timepoint = millis();
-		/**
-		 * index 0 for adc's pin A0
- 		 * index 1 for adc's pin A1
-		 * index 2 for adc's pin A2
-		 * index 3 for adc's pin A3
-		*/
+
     voltageec = ads.readADC_SingleEnded(0) / 10;
 		voltageph = ads.readADC_SingleEnded(1) / 10; // read the voltage
 		Serial.print("adc voltageph:");
@@ -105,22 +122,24 @@ void loop()
 		Serial.print("adc voltageec:");
 		Serial.println(voltageec, 4);
 
-		// temperature = readTemperature(); // read your temperature sensor to execute temperature compensation
-		// Serial.print("temperature:");
-		// Serial.print(temperature, 1);
-		// Serial.println("^C");
 
     ecValue = ec.readEC(voltageec, temperature); // convert voltage to EC with temperature compensation
 		Serial.print("EC:");
 		Serial.print(ecValue, 4);
 		Serial.println("ms/cm");
 
-    
+    ecString = String(ecValue);
+    postTo(sensrec, ecString);
+
 		phValue = ph.readPH(voltageph, temperature); // convert voltage to pH with temperature compensation
 		Serial.print("pH:");
 		Serial.println(phValue, 4);
 
-    waterlevel();
+    phString = String(phValue);
+    postTo(sensrph, phString);
+
+    ketinggian = waterlevel();
+
 
     if (ecValue < 1.2){
       digitalWrite(outec, HIGH);
@@ -136,6 +155,14 @@ void loop()
     if (phValue < 5){
       // ph up
 
+    }
+
+    if (ketinggian < 20) {
+    // pump on
+    }
+
+    if (ketinggian == 30) {
+    // pump off
     }
 
 	}
