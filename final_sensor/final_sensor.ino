@@ -124,7 +124,7 @@ void loop()
     delay(1000);
     
     ecString = String(ecValue);
-    postTo(sensrec, ecString);
+    //postTo(sensrec, ecString);
     
     delay(1000);
 
@@ -133,13 +133,15 @@ void loop()
 		Serial.println(phValue, 4);
     
     phString = String(phValue);
-    postTo(sensrph, phString);
+    //postTo(sensrph, phString);
     
     delay(1000);
 
     ketinggian = waterlevel();
-    ketstring = String(ketinggian);
-    postTo(sensrwl, ketstring);
+    Serial.print("ketinggian: ");
+    Serial.print(ketinggian);
+    // ketstring = String(ketinggian);
+    //postTo(sensrwl, ketstring);
     
     delay(1000);
 
@@ -150,23 +152,23 @@ void loop()
       digitalWrite(outec, LOW);
     }
 
-    if (phValue > 7) {
-      // ph down
+    // if (phValue > 7) {
+    //   // ph down
 
-    }
+    // }
 
-    if (phValue < 5){
-      // ph up
+    // if (phValue < 5){
+    //   // ph up
 
-    }
+    // }
 
-    if (ketinggian < 20) {
-    // pump on
-    }
+    // if (ketinggian < 20) {
+    // // pump on
+    // }
 
-    if (ketinggian == 30) {
-    // pump off
-    }
+    // if (ketinggian == 30) {
+    // // pump off
+    // }
 
 	}
 }
