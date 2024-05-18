@@ -10,8 +10,8 @@ const char* password = "12345678";
 const char*  server = "puh.web.id";  // Server URL
 
 WiFiClientSecure client;
-const int trigPin = 9;
-const int echoPin = 10;
+const int trigPin = 5;
+const int echoPin = 18;
 long duration;
 int distance, tinggi, ketinggian;
 
